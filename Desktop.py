@@ -127,8 +127,8 @@ class WorkerThread(Thread):
         # Get options via arg
         from couchpotato.runner import getOptions
         portable_path = os.path.join( base_path, '..' )
-        args = ['--quiet','--data_dir=' + base_path + 'data']
-        #args = ['--debug','--data_dir=' + portable_path + '/data']	
+        args = ['--quiet','--data_dir=' + portable_path + '/data','--config_file=' + portable_path + '/data/settings.conf']
+        #args = ['--debug','--data_dir=' + portable_path + '/data','--config_file=' + portable_path + '/data/settings.conf']
         self.options = getOptions(portable_path, args)
 
         # Load settings
