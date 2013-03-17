@@ -3,7 +3,8 @@ from setuptools import setup
 import os
 import sys
 import version
-
+import shutil
+import time
 
 # Include proper dirs
 base_path = os.path.dirname(os.path.abspath(__file__))
@@ -90,6 +91,12 @@ ESKY_OPTIONS = dict(
     freezer_options = FREEZER_OPTIONS,
     bundle_msvcrt = True,
 )
+
+#Kill process if running
+os.system("taskkill /im " + NAME + ".exe /f")
+shutil.rmtree('dist',ignore_errors=True)
+shutil.rmtree('build',ignore_errors=True)
+time.sleep(1)
 
 # Build the app and the esky bundle
 setup(

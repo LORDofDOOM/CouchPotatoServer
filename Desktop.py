@@ -126,8 +126,10 @@ class WorkerThread(Thread):
 
         # Get options via arg
         from couchpotato.runner import getOptions
-        args = ['--quiet']
-        self.options = getOptions(base_path, args)
+        portable_path = os.path.join( base_path, '..' )
+        args = ['--quiet','--data_dir=' + base_path + 'data']
+        #args = ['--debug','--data_dir=' + portable_path + '/data']	
+        self.options = getOptions(portable_path, args)
 
         # Load settings
         settings = Env.get('settings')
@@ -138,6 +140,7 @@ class WorkerThread(Thread):
         if self.data_dir == '':
             from couchpotato.core.helpers.variable import getDataDir
             self.data_dir = getDataDir()
+        self.data_dir = portable_path + '/data'
 
         if not os.path.isdir(self.data_dir):
             os.makedirs(self.data_dir)
