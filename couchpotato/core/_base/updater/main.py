@@ -349,6 +349,7 @@ class SourceUpdater(BaseUpdater):
                 self.version['type'] = 'source'
             except Exception, e:
                 log.error('Failed using source updater. %s', e)
+                self.__init__()                
                 return {}
 
         return self.version

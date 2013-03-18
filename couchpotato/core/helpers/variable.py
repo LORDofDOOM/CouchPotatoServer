@@ -105,7 +105,10 @@ def cleanHost(host):
     return host
 
 def getImdb(txt, check_inside = True, multiple = False):
-
+    
+    f_enc = sys.getfilesystemencoding()
+    txt = txt.decode(f_enc)
+    
     if check_inside and os.path.isfile(txt):
         output = open(txt, 'r')
         txt = output.read()
