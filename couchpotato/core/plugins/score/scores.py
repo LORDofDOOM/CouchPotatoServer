@@ -2,6 +2,7 @@ from couchpotato.core.event import fireEvent
 from couchpotato.core.helpers.encoding import simplifyString
 from couchpotato.core.helpers.variable import tryInt
 from couchpotato.environment import Env
+from couchpotato.core.helpers.language import defaultLang, langSearch
 import re
 
 name_scores = [
@@ -14,7 +15,7 @@ name_scores = [
     # Quality
     '720p:10', '1080p:10', 'bluray:10', 'dvd:1', 'dvdrip:1', 'brrip:1', 'bdrip:1', 'bd50:1', 'bd25:1',
     # Language / Subs
-    'english:-10', 'french:-10', 'spanish:-10', 'swesub:-20', 'danish:-10', 'dutch:-10',
+    'german:-10', 'french:-10', 'spanish:-10', 'swesub:-20', 'danish:-10', 'dutch:-10',
     # Release groups
     'imbt:1', 'cocain:1', 'vomit:1', 'fico:1', 'arrow:1', 'pukka:1', 'prism:1', 'devise:1', 'esir:1', 'ctrlhd:1',
     'metis:10', 'diamond:10', 'wiki:10', 'cbgb:10', 'crossbow:1', 'sinners:10', 'amiable:10', 'refined:1', 'twizted:1', 'felony:1', 'hubris:1', 'machd:1',
@@ -145,7 +146,7 @@ def partialIgnoredScore(nzb_name, movie_name):
 
     score = 0
     for ignored_word in ignored_words:
-        if ignored_word in nzb_name and ignored_word not in movie_name:
+        if ignored_word in nzb_name and ignored_word not in movie_name and ignored_word not in langSearch(defaultLang()):
             score -= 5
 
     return score

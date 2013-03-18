@@ -1,5 +1,6 @@
 from couchpotato.core.event import addEvent
 from couchpotato.core.helpers.encoding import simplifyString, toUnicode
+from couchpotato.core.helpers.language import defaultLang, langCodeLong
 from couchpotato.core.logger import CPLog
 from couchpotato.core.providers.movie.base import MovieProvider
 from libs.themoviedb import tmdb
@@ -17,7 +18,7 @@ class TheMovieDb(MovieProvider):
         addEvent('movie.info_by_tmdb', self.getInfoByTMDBId)
 
         # Use base wrapper
-        tmdb.configure(self.conf('api_key'))
+        tmdb.configure(self.conf('api_key'), defaultLang(), langCodeLong(defaultLang()))        
 
     def byHash(self, file):
         ''' Find movie by hash '''

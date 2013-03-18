@@ -5,6 +5,7 @@ from couchpotato.core.helpers.variable import tryInt
 from couchpotato.core.logger import CPLog
 from couchpotato.core.providers.nzb.base import NZBProvider
 from couchpotato.environment import Env
+from couchpotato.core.helpers.language import defaultLang, langSearch
 from dateutil.parser import parse
 import re
 import time
@@ -23,7 +24,7 @@ class NzbIndex(NZBProvider, RSS):
 
     def _searchOnTitle(self, title, movie, quality, results):
 
-        q = '"%s %s"' % (title, movie['library']['year'])
+        q = '"%s %s" %s' % (title, movie['library']['year'], langSearch(defaultLang()))
         arguments = tryUrlencode({
             'q': q,
             'age': Env.setting('retention', 'nzb'),

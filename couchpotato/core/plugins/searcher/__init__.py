@@ -15,6 +15,14 @@ config = [{
             'description': 'Options for the searchers',
             'options': [
                 {
+                    'name': 'language',
+                    'label': 'Language',
+                    'description': 'Which language used for search',
+                    'default': 'de',
+                    'type': 'dropdown',
+                    'values': [('German', 'de'), ('English', 'en')],
+                },
+                {                 
                     'name': 'preferred_words',
                     'label': 'Preferred words',
                     'default': '',
