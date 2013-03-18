@@ -353,6 +353,7 @@ class MoviePlugin(Plugin):
         else:
             try:
                 is_movie = fireEvent('movie.is_movie', identifier = params.get('identifier'), single = True)
+                log.info(identifier)
                 if not is_movie:
                     msg = 'Can\'t add movie, seems to be a TV show.'
                     log.error(msg)

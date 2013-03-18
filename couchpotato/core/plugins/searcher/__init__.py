@@ -23,6 +23,12 @@ config = [{
                     'values': [('German', 'de'), ('English', 'en')],
                 },
                 {                 
+                    'name': 'language_tags',
+                    'label': 'Language Tags',
+                    'default': 'german',
+                    'description': 'Only used if a other language than english is used, overrides blacklisted words. Same usage as Required words',
+                },                        
+                {                 
                     'name': 'preferred_words',
                     'label': 'Preferred words',
                     'default': '',

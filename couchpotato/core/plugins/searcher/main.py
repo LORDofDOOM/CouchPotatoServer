@@ -5,6 +5,7 @@ from couchpotato.core.helpers.encoding import simplifyString, toUnicode
 from couchpotato.core.helpers.request import jsonified, getParam
 from couchpotato.core.helpers.variable import md5, getTitle, splitString, \
     possibleTitles
+from couchpotato.core.helpers.language import defaultLang, langSearch    
 from couchpotato.core.logger import CPLog
 from couchpotato.core.plugins.base import Plugin
 from couchpotato.core.settings.model import Movie, Release, ReleaseInfo
@@ -370,14 +371,27 @@ class Searcher(Plugin):
         for req_set in required_words:
             req = splitString(req_set, '&')
             req_match += len(list(set(nzb_words) & set(req))) == len(req)
+            
+        #Language Files
+        lang_nzb_words = re.split('\W+', nzb_name)
+        language_tags = splitString(self.conf('language_tags').lower())
 
+        lang_req_match = 0
+        for lang_req_set in language_tags:
+            lang_req = splitString(lang_req_set, '&')
+            lang_req_match += len(list(set(lang_nzb_words) & set(lang_req))) == len(lang_req)         
+            
+        if self.conf('language').lower() != 'en' and lang_req_match == 0:
+            log.info2("Wrong Language (%s required): '%s'" % (langSearch(defaultLang()), nzb['name']))
+            return False             
+            
         if self.conf('required_words') and req_match == 0:
             log.info2("Wrong: Required word missing: %s" % nzb['name'])
             return False
 
         ignored_words = splitString(self.conf('ignored_words').lower())
         blacklisted = list(set(nzb_words) & set(ignored_words) - set(movie_words))
-        if self.conf('ignored_words') and blacklisted:
+        if self.conf('ignored_words') and blacklisted and not langSearch(defaultLang()):
             log.info2("Wrong: '%s' blacklisted words: %s" % (nzb['name'], ", ".join(blacklisted)))
             return False
 
