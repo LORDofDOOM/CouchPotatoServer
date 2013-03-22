@@ -18,14 +18,14 @@ config = [{
                     'name': 'language',
                     'label': 'Language',
                     'description': 'Which language used for search',
-                    'default': 'dl, german, deutsch, ger',
+                    'default': 'de',
                     'type': 'dropdown',
                     'values': [('German', 'de'), ('English', 'en')],
                 },
                 {                 
                     'name': 'language_tags',
                     'label': 'Language Tags',
-                    'default': 'german',
+                    'default': 'dl, german, deutsch, ger',
                     'description': 'Only used if a other language than english is used, overrides blacklisted words. Same usage as Required words',
                 },                        
                 {                 
