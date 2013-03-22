@@ -158,7 +158,7 @@ class Searcher(Plugin):
 
         ret = False
         for quality_type in movie['profile']['types']:
-            if not self.couldBeReleased(quality_type['quality']['identifier'] in pre_releases, release_dates):
+            if not self.conf('always_search') and not self.couldBeReleased(quality_type['quality']['identifier'] in pre_releases, release_dates):
                 log.info('Too early to search for %s, %s', (quality_type['quality']['identifier'], default_title))
                 continue
 
@@ -166,7 +166,7 @@ class Searcher(Plugin):
 
             # See if better quality is available
             for release in movie['releases']:
-                if release['quality']['order'] < quality_type['quality']['order'] and release['status_id'] not in [available_status.get('id'), ignored_status.get('id')]:
+                if release['quality']['order'] <= quality_type['quality']['order'] and release['status_id'] not in [available_status.get('id'), ignored_status.get('id')]:
                     has_better_quality += 1
 
             # Don't search for quality lower then already available.
