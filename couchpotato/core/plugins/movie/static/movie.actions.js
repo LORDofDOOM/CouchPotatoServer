@@ -66,7 +66,7 @@ MA.IMDB = new Class({
 
 		self.el = new Element('a.imdb', {
 			'title': 'Go to the IMDB page of ' + self.movie.getTitle(),
-			'href': 'http://www.imdb.com/title/'+self.id+'/',
+			'href': 'http://www.imdb.de/title/'+self.id+'/',
 			'target': '_blank'
 		});
 

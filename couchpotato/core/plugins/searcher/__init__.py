@@ -18,7 +18,7 @@ config = [{
                     'name': 'language',
                     'label': 'Language',
                     'description': 'Which language used for search',
-                    'default': 'de',
+                    'default': 'dl, german, deutsch, ger',
                     'type': 'dropdown',
                     'values': [('German', 'de'), ('English', 'en')],
                 },
