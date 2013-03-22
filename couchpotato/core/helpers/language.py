@@ -11,10 +11,10 @@ languageCodes = {
                 }
 
 def defaultLang():
-    return Env.setting('language', 'searcher', None, "en")
+    return Env.setting('language', 'searcher', None, "de")
 
-def langCodeLong(lang="en"):
+def langCodeLong(lang="de"):
     return languageCodes[lang]['long']
 
-def langSearch(lang="en"):
+def langSearch(lang="de"):
     return languageCodes[lang]['search']

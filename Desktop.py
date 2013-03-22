@@ -127,8 +127,8 @@ class WorkerThread(Thread):
         # Get options via arg
         from couchpotato.runner import getOptions
         portable_path = os.path.join( base_path, '../..' )
-        args = ['--quiet','--data_dir=' + portable_path + '/CouchPotatoData','--config_file=' + portable_path + '/CouchPotatoData/settings.conf']
-        #args = ['--debug','--data_dir=' + portable_path + '/data','--config_file=' + portable_path + '/data/settings.conf']
+        #args = ['--quiet','--data_dir=' + portable_path + '/CouchPotatoData','--config_file=' + portable_path + '/CouchPotatoData/settings.conf']
+        args = ['--debug','--data_dir=' + portable_path + '/CouchPotatoData','--config_file=' + portable_path + '/CouchPotatoData/settings.conf']
         self.options = getOptions(portable_path, args)
 
         # Load settings
@@ -169,8 +169,8 @@ class CouchPotatoApp(wx.App, SoftwareUpdate):
     def OnInit(self):
 
         # Updater
-        base_url = 'http://www.cybesystems.com/updates/couchpotato/%s/' % VERSION
-        self.InitUpdates(base_url, base_url + 'changelog.html',
+        base_url = 'http://www.cybesystems.com/updates/couchpotato/%s/'
+        self.InitUpdates(base_url % VERSION + '/', base_url % 'changelog.html',
                          icon = wx.Icon('icon.png'))
 
         self.frame = MainFrame(self)
