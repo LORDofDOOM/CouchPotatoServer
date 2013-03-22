@@ -11,14 +11,15 @@ name_scores = [
     # Video
     'x264:1', 'h264:1',
     # Audio
-    'dts:4', 'ac3:2',
+    'dts:4', 'ac3:2', 'dts-hd:6',
     # Quality
     '720p:10', '1080p:10', 'bluray:10', 'dvd:1', 'dvdrip:1', 'brrip:1', 'bdrip:1', 'bd50:1', 'bd25:1',
     # Language / Subs
     #'german:-10', 'french:-10', 'spanish:-10', 'swesub:-20', 'danish:-10', 'dutch:-10',
     # Release groups
-    'imbt:1', 'cocain:1', 'vomit:1', 'fico:1', 'arrow:1', 'pukka:1', 'prism:1', 'devise:1', 'esir:1', 'ctrlhd:1',
-    'metis:10', 'diamond:10', 'wiki:10', 'cbgb:10', 'crossbow:1', 'sinners:10', 'amiable:10', 'refined:1', 'twizted:1', 'felony:1', 'hubris:1', 'machd:1',
+    #'imbt:1', 'cocain:1', 'vomit:1', 'fico:1', 'arrow:1', 'pukka:1', 'prism:1', 'devise:1', 'esir:1', 'ctrlhd:1',
+    #'metis:10', 'diamond:10', 'wiki:10', 'cbgb:10', 'crossbow:1', 'sinners:10', 'amiable:10', 'refined:1', 'twizted:1', 'felony:1', 'hubris:1', 'machd:1',
+    'details:10', 'sons:10', 'leethd:7', 'stars:3', 'msd:5', 'hds:7', 'lamehd:7', 'ephemerid:5', 'pmhd:5', 'wombat:5', 'inception:7',    
     # Extras
     'extras:-40', 'trilogy:-40',
 ]
@@ -40,6 +41,10 @@ def nameScore(name, year):
     # points if the year is correct
     if str(year) in name:
         score = score + 5
+        
+    # points if the year +1 is correct (sometimes english and german years differs +1)
+    if str(int(year) + 1) in name:
+        score = score + 5        
 
     # Contains preferred word
     nzb_words = re.split('\W+', simplifyString(name))

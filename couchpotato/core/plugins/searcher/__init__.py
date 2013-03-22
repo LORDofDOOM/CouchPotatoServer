@@ -25,7 +25,7 @@ config = [{
                 {                 
                     'name': 'language_tags',
                     'label': 'Language Tags',
-                    'default': 'german',
+                    'default': 'dl, german, deutsch, ger',
                     'description': 'Only used if a other language than english is used, overrides blacklisted words. Same usage as Required words',
                 },                        
                 {                 

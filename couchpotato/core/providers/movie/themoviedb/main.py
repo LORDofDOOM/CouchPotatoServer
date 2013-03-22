@@ -18,7 +18,7 @@ class TheMovieDb(MovieProvider):
         addEvent('movie.info_by_tmdb', self.getInfoByTMDBId)
 
         # Use base wrapper
-        tmdb.configure(self.conf('api_key'), defaultLang(), langCodeLong(defaultLang()))        
+        tmdb.configure(self.conf('api_key'), 'de')        
 
     def byHash(self, file):
         ''' Find movie by hash '''
@@ -66,7 +66,8 @@ class TheMovieDb(MovieProvider):
 
             raw = None
             try:
-                raw = tmdb.search(search_string)
+                raw = tmdb.Movies(search_string)
+                #raw = tmdb.Movie(24428).get_title(search_string)
             except:
                 log.error('Failed searching TMDB for "%s": %s', (search_string, traceback.format_exc()))
 
@@ -89,7 +90,7 @@ class TheMovieDb(MovieProvider):
                 except SyntaxError, e:
                     log.error('Failed to parse XML response: %s', e)
                     return False
-
+        log.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! %s', result)
         return results
 
     def getInfo(self, identifier = None):
@@ -140,57 +141,60 @@ class TheMovieDb(MovieProvider):
     def parseMovie(self, movie):
 
         # Images
-        poster = self.getImage(movie, type = 'poster', size = 'cover')
+        #poster = self.getImage(movie, type = 'poster', size = 'cover')
+        poster = movie.get_poster()
         #backdrop = self.getImage(movie, type = 'backdrop', size = 'w1280')
-        poster_original = self.getImage(movie, type = 'poster', size = 'original')
-        backdrop_original = self.getImage(movie, type = 'backdrop', size = 'original')
+        #poster_original = self.getImage(movie, type = 'poster', size = 'original')
+        #backdrop_original = self.getImage(movie, type = 'backdrop', size = 'original')
 
         # Genres
         try:
-            genres = self.getCategory(movie, 'genre')
+            genres = self.get_genres()
         except:
             genres = []
 
         # 1900 is the same as None
-        year = str(movie.get('released', 'none'))[:4]
+        #year = str(movie.get_release_date())[:4]
+        year = '1994'
         if year == '1900' or year.lower() == 'none':
             year = None
 
         movie_data = {
             'via_tmdb': True,
-            'tmdb_id': int(movie.get('id', 0)),
-            'titles': [toUnicode(movie.get('name'))],
-            'original_title': movie.get('original_name'),
+            'tmdb_id': int(movie.get_id()),
+            'titles': [toUnicode(movie.get_title())],
+            'original_title': movie.get_original_title(),
             'images': {
                 'poster': [poster] if poster else [],
                 #'backdrop': [backdrop] if backdrop else [],
-                'poster_original': [poster_original] if poster_original else [],
-                'backdrop_original': [backdrop_original] if backdrop_original else [],
+                #'poster_original': [poster_original] if poster_original else [],
+                #'backdrop_original': [backdrop_original] if backdrop_original else [],
             },
-            'imdb': movie.get('imdb_id'),
-            'runtime': movie.get('runtime'),
-            'released': movie.get('released'),
+            'imdb': movie.get_imdb_id(),
+            'runtime': movie.get_runtime(),
+            #'released': movie.get_release_date(),
+            'released': '1994-06-22',
             'year': year,
-            'plot': movie.get('overview', ''),
+            'plot': movie.get_overview(),
             'tagline': '',
             'genres': genres,
         }
 
         # Add alternative names
+        '''log.error(movie.get_alternative_titles(movie.get_id()))
         for alt in ['original_name', 'alternative_name']:
-            alt_name = toUnicode(movie.get(alt))
+            
+            log.error(movie.get_alternative_titles(movie.get_id()))
+            alt_name = toUnicode(movie.get_alternative_titles(movie.get_id()))
             if alt_name and not alt_name in movie_data['titles'] and alt_name.lower() != 'none' and alt_name != None:
-                movie_data['titles'].append(alt_name)
+                movie_data['titles'].append(alt_name)'''
 
         return movie_data
 
     def getImage(self, movie, type = 'poster', size = 'cover'):
 
         image_url = ''
-        for image in movie.get('images', []):
-            if(image.get('type') == type) and image.get(size):
-                image_url = image.get(size)
-                break
+        image_url = movie.get_poster()
 
         return image_url
 

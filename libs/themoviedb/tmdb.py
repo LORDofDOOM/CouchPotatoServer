@@ -1,742 +1,374 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
-#author:doganaydin /// forked from dbr/Ben
+#author:doganaydin
 #project:themoviedb
 #repository:http://github.com/doganaydin/themoviedb
-#license: LGPLv2 http://www.gnu.org/licenses/lgpl.html
-
+#license: LGPLv3 http://www.gnu.org/licenses/lgpl.html
 """An interface to the themoviedb.org API"""
 
 __author__ = "doganaydin"
-__version__ = "0.5"
+__version__ = "1.0b"
 
+try:
+    import simplejson
+except:
+    import json as simplejson
+
+import requests
 
 config = {}
 
-def configure(api_key, langShort, langLong):
+def configure(api_key, language='en'):
     config['apikey'] = api_key
-    config['langShort'] = langShort
-    config['langLong'] = langLong    
+    config['language'] = language
     config['urls'] = {}
-    config['urls']['movie.search'] = "http://api.themoviedb.org/2.1/Movie.search/%(langShort)s/xml/%(apikey)s/%%s" % (config)
-    config['urls']['movie.getInfo'] = "http://api.themoviedb.org/2.1/Movie.getInfo/%(langShort)s/xml/%(apikey)s/%%s" % (config)
-    config['urls']['media.getInfo'] = "http://api.themoviedb.org/2.1/Media.getInfo/%(langShort)s/xml/%(apikey)s/%%s/%%s" % (config)
-    config['urls']['imdb.lookUp'] = "http://api.themoviedb.org/2.1/Movie.imdbLookup/%(langShort)s/xml/%(apikey)s/%%s" % (config)
-    config['urls']['movie.browse'] = "http://api.themoviedb.org/2.1/Movie.browse/%(langLong)s/xml/%(apikey)s?%%s" % (config)
+    config['urls']['movie.search'] = "https://api.themoviedb.org/3/search/movie?query=%%s&api_key=%(apikey)s&page=%%s" % (config)
+    config['urls']['movie.info'] = "https://api.themoviedb.org/3/movie/%%s?api_key=%(apikey)s" % (config)
+    config['urls']['people.search'] = "https://api.themoviedb.org/3/search/person?query=%%s&api_key=%(apikey)s&page=%%s" % (config)
+    config['urls']['collection.info'] = "https://api.themoviedb.org/3/collection/%%s&api_key=%(apikey)s" % (config)
+    config['urls']['movie.alternativetitles'] = "https://api.themoviedb.org/3/movie/%%s/alternative_titles?api_key=%(apikey)s" % (config)
+    config['urls']['movie.casts'] = "https://api.themoviedb.org/3/movie/%%s/casts?api_key=%(apikey)s" % (config)
+    config['urls']['movie.images'] = "https://api.themoviedb.org/3/movie/%%s/images?api_key=%(apikey)s" % (config)
+    config['urls']['movie.keywords'] = "https://api.themoviedb.org/3/movie/%%s/keywords?api_key=%(apikey)s" % (config)
+    config['urls']['movie.releases'] = "https://api.themoviedb.org/3/movie/%%s/releases?api_key=%(apikey)s" % (config)
+    config['urls']['movie.trailers'] = "https://api.themoviedb.org/3/movie/%%s/trailers?api_key=%(apikey)s" % (config)
+    config['urls']['movie.translations'] = "https://api.themoviedb.org/3/movie/%%s/translations?api_key=%(apikey)s" % (config)
+    config['urls']['person.info'] = "https://api.themoviedb.org/3/person/%%s?api_key=%(apikey)s&append_to_response=images,credits" % (config)
+    config['urls']['latestmovie'] = "https://api.themoviedb.org/3/latest/movie?api_key=%(apikey)s" % (config)
+    config['urls']['config'] = "https://api.themoviedb.org/3/configuration?api_key=%(apikey)s" % (config)
+    config['urls']['request.token'] = "https://api.themoviedb.org/3/authentication/token/new?api_key=%(apikey)s" % (config)
+    config['urls']['session.id'] = "https://api.themoviedb.org/3/authentication/session/new?api_key=%(apikey)s&request_token=%%s" % (config)
+    config['urls']['movie.add.rating'] = "https://api.themoviedb.org/3/movie/%%s/rating?session_id=%%s&api_key=%(apikey)s" % (config)
+    config['api'] = {}
+    config['api']['backdrop.sizes'] = ""
+    config['api']['base.url'] = ""
+    config['api']['poster.sizes'] = ""
+    config['api']['profile.sizes'] = ""
+    config['api']['session.id'] = ""
 
-import os, struct, urllib, urllib2, xml.etree.cElementTree as ElementTree
 
-class TmdBaseError(Exception):
-    pass
-
-class TmdNoResults(TmdBaseError):
-    pass
-
-class TmdHttpError(TmdBaseError):
-    pass
-
-class TmdXmlError(TmdBaseError):
-    pass
-
-class TmdConfigError(TmdBaseError):
-    pass
-
-def opensubtitleHashFile(name):
-    """Hashes a file using OpenSubtitle's method.
-    > In natural language it calculates: size + 64bit chksum of the first and
-    > last 64k (even if they overlap because the file is smaller than 128k).
-    A slightly more Pythonic version of the Python solution on..
-    http://trac.opensubtitles.org/projects/opensubtitles/wiki/HashSourceCodes
-    """
-    longlongformat = 'q'
-    bytesize = struct.calcsize(longlongformat)
-
-    f = open(name, "rb")
-
-    filesize = os.path.getsize(name)
-    fhash = filesize
-
-    if filesize < 65536 * 2:
-       raise ValueError("File size must be larger than %s bytes (is %s)" % (65536 * 2, filesize))
-
-    for x in range(65536 / bytesize):
-        buf = f.read(bytesize)
-        (l_value,) = struct.unpack(longlongformat, buf)
-        fhash += l_value
-        fhash = fhash & 0xFFFFFFFFFFFFFFFF # to remain as 64bit number
-
-    f.seek(max(0, filesize - 65536), 0)
-    for x in range(65536 / bytesize):
-        buf = f.read(bytesize)
-        (l_value,) = struct.unpack(longlongformat, buf)
-        fhash += l_value
-        fhash = fhash & 0xFFFFFFFFFFFFFFFF
-
-    f.close()
-    return  "%016x" % fhash
-
-class XmlHandler:
-    """Deals with retrieval of XML files from API"""
-    def __init__(self, url):
-        self.url = url
-
-    def _grabUrl(self, url):
+class Core(object):
+    def getJSON(self, url, language=None):
+        language = language or config['language']
+        page = requests.get(url, params={'language': language}).content
         try:
-            urlhandle = urllib2.urlopen(url)
-        except IOError, errormsg:
-            raise TmdHttpError(errormsg)
-        if urlhandle.code >= 400:
-            raise TmdHttpError("HTTP status code was %d" % urlhandle.code)
-        return urlhandle.read()
+            return simplejson.loads(page)
+        except:
+            return simplejson.loads(page.decode('utf-8'))
 
-    def getEt(self):
-        xml = self._grabUrl(self.url)
-        try:
-            et = ElementTree.fromstring(xml)
-        except SyntaxError, errormsg:
-            raise TmdXmlError(errormsg)
-        return et
+    def escape(self,text):
+        if len(text) > 0:
+            return requests.utils.quote(text)
+        return False
 
-class SearchResults(list):
-    """Stores a list of Movie's that matched the search"""
-    def __repr__(self):
-        return "<Search results: %s>" % (list.__repr__(self))
+    def update_configuration(self):
+        c = self.getJSON(config['urls']['config'])
+        config['api']['backdrop.sizes'] = c['images']['backdrop_sizes']
+        config['api']['base.url'] = c['images']['base_url']
+        config['api']['poster.sizes'] = c['images']['poster_sizes']
+        config['api']['profile.sizes'] = c['images']['profile_sizes']
+        return "ok"
 
-class MovieResult(dict):
-    """A dict containing the information about a specific search result"""
-    def __repr__(self):
-        return "<MovieResult: %s (%s)>" % (self.get("name"), self.get("released"))
+    def backdrop_sizes(self,img_size):
+        size_list = {'s':'w300','m':'w780','l':'w1280','o':'original'}
+        return size_list[img_size]
 
-    def info(self):
-        """Performs a MovieDb.getMovieInfo search on the current id, returns
-        a Movie object
-        """
-        cur_id = self['id']
-        info = MovieDb().getMovieInfo(cur_id)
-        return info
+    def poster_sizes(self,img_size):
+        size_list = {'s':'w92','m':'185','l':'w500','o':'original'}
+        return size_list[img_size]
 
-class Movie(dict):
-    """A dict containing the information about the film"""
-    def __repr__(self):
-        return "<MovieResult: %s (%s)>" % (self.get("name"), self.get("released"))
+    def profile_sizes(self,img_size):
+        size_list = {'s':'w45','m':'185','l':'w632','o':'original'}
+        return size_list[img_size]
 
-class Categories(dict):
-    """Stores category information"""
-    def set(self, category_et):
-        """Takes an elementtree Element ('category') and stores the url,
-        using the type and name as the dict key.
-        For example:
-       <category type="genre" url="http://themoviedb.org/encyclopedia/category/80" name="Crime"/>
-        ..becomes:
-        categories['genre']['Crime'] = 'http://themoviedb.org/encyclopedia/category/80'
-        """
-        _type = category_et.get("type")
-        name = category_et.get("name")
-        url = category_et.get("url")
-        self.setdefault(_type, {})[name] = url
-        self[_type][name] = url
+    def request_token(self):
+        req = self.getJSON(config['urls']['request.token'])
+        r = req["request_token"]
+        return {"url":"http://themoviedb.org/authenticate/%s" % r,"request_token":r}
 
-class Studios(dict):
-    """Stores category information"""
-    def set(self, studio_et):
-        """Takes an elementtree Element ('studio') and stores the url,
-        using the name as the dict key.
-        For example:
-       <studio url="http://www.themoviedb.org/encyclopedia/company/20" name="Miramax Films"/>
-        ..becomes:
-        studios['name'] = 'http://www.themoviedb.org/encyclopedia/company/20'
-        """
-        name = studio_et.get("name")
-        url = studio_et.get("url")
-        self[name] = url
+    def session_id(self,token):
+        sess = self.getJSON(config['urls']['session.id'] % token)
+        config['api']['session.id'] = sess["session_id"]
+        return sess["session_id"]
 
-class Countries(dict):
-    """Stores country information"""
-    def set(self, country_et):
-        """Takes an elementtree Element ('country') and stores the url,
-        using the name and code as the dict key.
-        For example:
-       <country url="http://www.themoviedb.org/encyclopedia/country/223" name="United States of America" code="US"/>
-        ..becomes:
-        countries['code']['name'] = 'http://www.themoviedb.org/encyclopedia/country/223'
-        """
-        code = country_et.get("code")
-        name = country_et.get("name")
-        url = country_et.get("url")
-        self.setdefault(code, {})[name] = url
+class Movies(Core):
+    def __init__(self, title="", limit=False, language=None):
+        self.limit = limit
+        self.update_configuration()
+        title = self.escape(title)
+        self.movies = self.getJSON(config['urls']['movie.search'] % (title,str(1)), language=language)
+        pages = self.movies["total_pages"]
+        if not self.limit:
+            if int(pages) > 1:                  #
+                for i in range(2,int(pages)+1): #  Thanks @tBuLi
+                    self.movies["results"].extend(self.getJSON(config['urls']['movie.search'] % (title,str(i)), language=language)["results"])
 
-class Image(dict):
-    """Stores image information for a single poster/backdrop (includes
-    multiple sizes)
-    """
-    def __init__(self, _id, _type, size, url):
-        self['id'] = _id
-        self['type'] = _type
+    def __iter__(self):
+        for i in self.movies["results"]:
+            yield Movie(i["id"])
 
-    def largest(self):
-        for csize in ["original", "mid", "cover", "thumb"]:
-            if csize in self:
-                return csize
+    def get_total_results(self):
+        if self.limit:
+            return len(self.movies["results"])
+        return self.movies["total_results"]
 
-    def __repr__(self):
-        return "<Image (%s for ID %s)>" % (self['type'], self['id'])
+    def iter_results(self):
+        for i in self.movies["results"]:
+            yield i
 
-class ImagesList(list):
-    """Stores a list of Images, and functions to filter "only posters" etc"""
-    def set(self, image_et):
-        """Takes an elementtree Element ('image') and stores the url,
-        along with the type, id and size.
-        Is a list containing each image as a dictionary (which includes the
-        various sizes)
-        For example:
-        <image type="poster" size="original" url="http://images.themoviedb.org/posters/4181/67926_sin-city-02-color_122_207lo.jpg" id="4181"/>
-        ..becomes:
-        images[0] = {'id':4181', 'type': 'poster', 'original': 'http://images.themov...'}
-        """
-        _type = image_et.get("type")
-        _id = image_et.get("id")
-        size = image_et.get("size")
-        url = image_et.get("url")
-        cur = self.find_by('id', _id)
-        if len(cur) == 0:
-            nimg = Image(_id = _id, _type = _type, size = size, url = url)
-            self.append(nimg)
-        elif len(cur) == 1:
-            cur[0][size] = url
-        else:
-            raise ValueError("Found more than one poster with id %s, this should never happen" % (_id))
+class Movie(Core):
+    def __init__(self, movie_id, language=None):
+        self.movie_id = movie_id
+        self.update_configuration()
+        self.movies = self.getJSON(config['urls']['movie.info'] % self.movie_id, language=language)
+        self.movies_alternativetitles = self.getJSON(config['urls']['movie.alternativetitles'] % self.movie_id, language=language)
 
-    def find_by(self, key, value):
-        ret = []
-        for cur in self:
-            if cur[key] == value:
-                ret.append(cur)
-        return ret
+    def is_adult(self):
+        return self.movies['adult']
 
-    @property
-    def posters(self):
-        return self.find_by('type', 'poster')
+    def get_collection_id(self):
+        return self.movies['belongs_to_collection']["id"]
 
-    @property
-    def backdrops(self):
-        return self.find_by('type', 'backdrop')
+    def get_collection_name(self):
+        return self.movies['belongs_to_collection']["name"]
 
-class CrewRoleList(dict):
-    """Stores a list of roles, such as director, actor etc
-    >>> import tmdb
-    >>> tmdb.getMovieInfo(550)['cast'].keys()[:5]
-    ['casting', 'producer', 'author', 'sound editor', 'actor']
-    """
-    pass
+    # Sizes = s->w300 m->w780 l->w1280 o->original(default)
+    def get_collection_backdrop(self,img_size="o"):
+        img_path = self.movies["belongs_to_collection"]["backdrop_path"]
+        return config['api']['base.url']+self.poster_sizes(img_size)+img_path
 
-class CrewList(list):
-    """Stores list of crew in specific role
-    >>> import tmdb
-    >>> tmdb.getMovieInfo(550)['cast']['author']
-    [<author (id 7468): Chuck Palahniuk>, <author (id 7469): Jim Uhls>]
-    """
-    pass
+    # Sizes = s->w92 m->w185 l->w500 o->original(default)
+    def get_collection_poster(self,img_size="o"):
+        img_path = self.movies["belongs_to_collection"]["poster_path"]
+        return config['api']['base.url']+self.poster_sizes(img_size)+img_path
 
-class Person(dict):
-    """Stores information about a specific member of cast"""
-    def __init__(self, job, _id, name, character, url):
-        self['job'] = job
-        self['id'] = _id
-        self['name'] = name
-        self['character'] = character
-        self['url'] = url
+    def get_budget(self):
+        return self.movies['budget']
 
-    def __repr__(self):
-        if self['character'] is None or self['character'] == "":
-            return "<%(job)s (id %(id)s): %(name)s>" % self
-        else:
-            return "<%(job)s (id %(id)s): %(name)s (as %(character)s)>" % self
+    def get_genres(self):
+        genres = []
+        for i in self.movies['genres']:
+            genres.append({"id":i["id"],"name":i["name"]})
+        return genres
 
-class MovieDb:
-    """Main interface to www.themoviedb.com
-    The search() method searches for the film by title.
-    The getMovieInfo() method retrieves information about a specific movie using themoviedb id.
-    """
-    def _parseSearchResults(self, movie_element):
-        cur_movie = MovieResult()
-        cur_images = ImagesList()
-        for item in movie_element.getchildren():
-                if item.tag.lower() == "images":
-                    for subitem in item.getchildren():
-                        cur_images.set(subitem)
-                else:
-                    cur_movie[item.tag] = item.text
-        cur_movie['images'] = cur_images
-        return cur_movie
+    def get_homepage(self):
+        return self.movies['homepage']
 
-    def _parseMovie(self, movie_element):
-        cur_movie = Movie()
-        cur_categories = Categories()
-        cur_studios = Studios()
-        cur_countries = Countries()
-        cur_images = ImagesList()
-        cur_cast = CrewRoleList()
-        for item in movie_element.getchildren():
-            if item.tag.lower() == "categories":
-                for subitem in item.getchildren():
-                    cur_categories.set(subitem)
-            elif item.tag.lower() == "studios":
-                for subitem in item.getchildren():
-                    cur_studios.set(subitem)
-            elif item.tag.lower() == "countries":
-                for subitem in item.getchildren():
-                    cur_countries.set(subitem)
-            elif item.tag.lower() == "images":
-                for subitem in item.getchildren():
-                    cur_images.set(subitem)
-            elif item.tag.lower() == "cast":
-                for subitem in item.getchildren():
-                    job = subitem.get("job").lower()
-                    p = Person(
-                        job = job,
-                        _id = subitem.get("id"),
-                        name = subitem.get("name"),
-                        character = subitem.get("character"),
-                        url = subitem.get("url"),
-                    )
-                    cur_cast.setdefault(job, CrewList()).append(p)
+    def get_imdb_id(self):
+        return self.movies['imdb_id']
+
+    def get_overview(self):
+        return self.movies['overview']
+
+    def get_production_companies(self):
+        for i in self.movies['production_companies']:
+            companies = {"id":i["id"],"name":i["name"]}
+        return companies
+
+    def get_productions_countries(self):
+        countries = []
+        for i in self.movies['production_countries']:
+            countries.append({"iso_3166_1":i["iso_3166_1"],"name":i["name"]})
+        return countries
+
+    def get_revenue(self):
+        return self.movies['revenue']
+
+    def get_runtime(self):
+        return self.movies['runtime']
+
+    def get_spoken_languages(self):
+        langs = []
+        for i in self.movies['spoken_languages']:
+            langs.append({"iso_639_1":i["iso_639_1"],"name":i["name"]})
+        return langs
+
+    def get_tagline(self):
+        return self.movies['tagline']
+
+    def get_vote_average(self):
+        return self.movies['vote_average']
+
+    def get_vote_count(self):
+        return self.movies['vote_count']
+
+    def get_id(self):
+        return self.movie_id
+
+    # Sizes = s->w300 m->w780 l->w1280 o->original(default)
+    def get_backdrop(self,img_size="o"):
+        img_path = self.movies["backdrop_path"]
+        return config['api']['base.url']+self.backdrop_sizes(img_size)+img_path
+
+    def get_original_title(self):
+        return self.movies["original_title"]
+
+    def get_popularity(self):
+        return self.movies["popularity"]
+
+    def get_release_date(self):
+        return self.movies["release_date"]
+
+    def get_title(self):
+        return self.movies["title"]
+    
+    def get_alternative_titles(self,movie_id=0):
+        return self.movies_alternativetitles['titles']
+
+    # Sizes = s->w92 m->w185 l->w500 o->original(default)
+    def get_poster(self,img_size="o"):
+        img_path = self.movies["poster_path"]
+        return config['api']['base.url']+self.poster_sizes(img_size)+img_path
+
+    def get_trailers(self, language=None):
+        return self.getJSON(config['urls']['movie.trailers'] % self.movie_id, language=language)
+
+    def add_rating(self,value):
+        if isinstance(value,float) or isinstance(value,int):
+            if config["api"]["session.id"] == "":
+                return "PROBLEM_AUTH"
+            sess_id = config["api"]["session.id"]
+            data = {"value":float(value)}
+            req = requests.post(config['urls']['movie.add.rating'] % (self.movie_id,sess_id),data=data)
+            res = simplejson.loads(bytes(req.content).decode())
+            if res['status_message'] == "Success":
+                return True
             else:
-                cur_movie[item.tag] = item.text
-
-        cur_movie['categories'] = cur_categories
-        cur_movie['studios'] = cur_studios
-        cur_movie['countries'] = cur_countries
-        cur_movie['images'] = cur_images
-        cur_movie['cast'] = cur_cast
-        return cur_movie
-
-    def search(self, title):
-        """Searches for a film by its title.
-        Returns SearchResults (a list) containing all matches (Movie instances)
-        """
-        title = urllib.quote(title.encode("utf-8"))
-        url = config['urls']['movie.search'] % (title)
-        etree = XmlHandler(url).getEt()
-        search_results = SearchResults()
-        for cur_result in etree.find("movies").findall("movie"):
-            cur_movie = self._parseSearchResults(cur_result)
-            search_results.append(cur_movie)
-        return search_results
-
-    def getMovieInfo(self, id):
-        """Returns movie info by it's TheMovieDb ID.
-        Returns a Movie instance
-        """
-        url = config['urls']['movie.getInfo'] % (id)
-        etree = XmlHandler(url).getEt()
-        moviesTree = etree.find("movies").findall("movie")
-
-        if len(moviesTree) == 0:
-            raise TmdNoResults("No results for id %s" % id)
-        return self._parseMovie(moviesTree[0])
-
-    def mediaGetInfo(self, hash, size):
-        """Used to retrieve specific information about a movie but instead of
-        passing a TMDb ID, you pass a file hash and filesize in bytes
-        """
-        url = config['urls']['media.getInfo'] % (hash, size)
-        etree = XmlHandler(url).getEt()
-        moviesTree = etree.find("movies").findall("movie")
-        if len(moviesTree) == 0:
-            raise TmdNoResults("No results for hash %s" % hash)
-        return [self._parseMovie(x) for x in moviesTree]
-
-    def imdbLookup(self, id = 0, title = False):
-        if not config.get('apikey'):
-            raise TmdConfigError("API Key not set")
-        if id > 0:
-            url = config['urls']['imdb.lookUp'] % (id)
-        else:
-            _imdb_id = self.search(title)[0]["imdb_id"]
-            url = config['urls']['imdb.lookUp'] % (_imdb_id)
-        etree = XmlHandler(url).getEt()
-        lookup_results = SearchResults()
-        for cur_lookup in etree.find("movies").findall("movie"):
-            cur_movie = self._parseSearchResults(cur_lookup)
-            lookup_results.append(cur_movie)
-        return lookup_results
-
-class Browse:
-
-    def __init__(self, params = {}):
-        """
-            tmdb.Browse(params)
-            default params = {"order_by":"release","order":"desc"}
-            params = {"query":"some query","release_max":"1991",...}
-            all posible parameters = http://api.themoviedb.org/2.1/methods/Movie.browse    
-        """
-        if "order_by" not in params:
-            params.update({"order_by":"release"})
-        if "order" not in params:
-            params.update({"order":"desc"})
-
-        self.params = urllib.urlencode(params)
-        self.movie = self.look(self.params)
-
-    def look(self, look_for):
-        url = config['urls']['movie.browse'] % (look_for)
-        etree = XmlHandler(url).getEt()
-        look_results = SearchResults()
-        for cur_lookup in etree.find("movies").findall("movie"):
-            cur_movie = self._parseSearchResults(cur_lookup)
-            look_results.append(cur_movie)
-        return look_results
-
-    def _parseSearchResults(self, movie_element):
-        cur_movie = MovieResult()
-        cur_images = ImagesList()
-        for item in movie_element.getchildren():
-                if item.tag.lower() == "images":
-                    for subitem in item.getchildren():
-                        cur_images.set(subitem)
-                else:
-                    cur_movie[item.tag] = item.text
-        cur_movie['images'] = cur_images
-        return cur_movie
-
-    def getTotal(self):
-        return len(self.movie)
-
-    def getRating(self, i):
-        return self.movie[i]["rating"]
+                return False
+        return "ERROR"
 
-    def getVotes(self, i):
-        return self.movie[i]["votes"]
+class People(Core):
+    def __init__(self, people_name, language=None):
+        self.update_configuration()
+        people_name = self.escape(people_name)
+        self.people = self.getJSON(config['urls']['people.search'] % (people_name,str(1)), language=language)
+        pages = self.people["total_pages"]
+        if int(pages) > 1:
+            for i in range(2,int(pages)+1):
+                self.people["results"].extend(self.getJSON(config['urls']['people.search'] % (people_name,str(i)), language=language)["results"])
 
-    def getName(self, i):
-        return self.movie[i]["name"]
+    def __iter__(self):
+        for i in self.people["results"]:
+            yield Person(i["id"])
 
-    def getLanguage(self, i):
-        return self.movie[i]["language"]
+    def total_results(self):
+        return self.people["total_results"]
 
-    def getCertification(self, i):
-        return self.movie[i]["certification"]
+    def iter_results(self):
+        for i in self.people["results"]:
+            yield i
 
-    def getUrl(self, i):
-        return self.movie[i]["url"]
+class Person(Core):
+    def __init__(self, person_id, language=None):
+        self.person_id = person_id
+        self.update_configuration()
+        self.person = self.getJSON(config['urls']['person.info'] % self.person_id, language=language)
 
-    def getOverview(self, i):
-        return self.movie[i]["overview"]
+    def get_id(self):
+        return self.person_id
 
-    def getPopularity(self, i):
-        return self.movie[i]["popularity"]
+    def is_adult(self):
+        return self.person["adult"]
 
-    def getOriginalName(self, i):
-        return self.movie[i]["original_name"]
+    def get_name(self):
+        return self.person["name"]
 
-    def getLastModified(self, i):
-        return self.movie[i]["last_modified_at"]
+    # Sizes = s->w45 m->w185 l->w632 o->original(default)
+    def get_profile_image(self,img_size="o"):
+        img_path = self.person["profile_path"]
+        return config['api']['base.url']+self.profile_sizes(img_size)+img_path
 
-    def getImdbId(self, i):
-        return self.movie[i]["imdb_id"]
+    def get_biography(self):
+        return self.person['biography']
 
-    def getReleased(self, i):
-        return self.movie[i]["released"]
+    def get_birthday(self):
+        return self.person['birthday']
 
-    def getScore(self, i):
-        return self.movie[i]["score"]
+    def get_deathday(self):
+        return self.person['deathday']
 
-    def getAdult(self, i):
-        return self.movie[i]["adult"]
+    def get_place_of_birth(self):
+        return self.person['place_of_birth']
 
-    def getVersion(self, i):
-        return self.movie[i]["version"]
+    def get_homepage(self):
+        return self.person['homepage']
 
-    def getTranslated(self, i):
-        return self.movie[i]["translated"]
+    def get_also_known_as(self):
+        return self.person['also_known_as']
 
-    def getType(self, i):
-        return self.movie[i]["type"]
+    def get_image_aspect_ratio(self,image_index=0):
+        return self.person["images"]['profiles'][image_index]['aspect_ratio']
 
-    def getId(self, i):
-        return self.movie[i]["id"]
+    def get_image_height(self,image_index=0):
+        return self.person["images"]['profiles'][image_index]['height']
 
-    def getAlternativeName(self, i):
-        return self.movie[i]["alternative_name"]
+    def get_image_width(self,image_index=0):
+        return self.person["images"]['profiles'][image_index]['width']
 
-    def getPoster(self, i, size):
-        if size == "thumb" or size == "t":
-            return self.movie[i]["images"][0]["thumb"]
-        elif size == "cover" or size == "c":
-            return self.movie[i]["images"][0]["cover"]
-        else:
-            return self.movie[i]["images"][0]["mid"]
+    def get_image_iso_639_1(self,image_index=0):
+        return self.person["images"]['profiles'][image_index]['iso_639_1']
 
-    def getBackdrop(self, i, size):
-        if size == "poster" or size == "p":
-            return self.movie[i]["images"][1]["poster"]
-        else:
-            return self.movie[i]["images"][1]["thumb"]
+    #Sizes = s->w92 m->w185 l->w500 o->original(default)
+    def get_image(self,img_size="o",image_index=0):
+        img_path = self.person["images"]['profiles'][image_index]['file_path']
+        return config['api']['base.url']+self.poster_sizes(img_size)+img_path
 
+    def cast(self):
+        for c in self.person["credits"]["cast"]:
+            yield Cast(c)
 
+    def crew(self):
+        for c in self.person["credits"]["crew"]:
+            yield Crew(c)
 
-# Shortcuts for tmdb search method
-# using:
-#   movie = tmdb.tmdb("Sin City")
-#   print movie.getRating -> 7.0
-class tmdb:
 
-    def __init__(self, name):
-        """Convenience wrapper for MovieDb.search - so you can do..
-        >>> import tmdb
-        >>> movie = tmdb.tmdb("Fight Club")
-        >>> ranking = movie.getRanking() or votes = movie.getVotes()
-        <Search results: [<MovieResult: Fight Club (1999-09-16)>]>
-        """
-        mdb = MovieDb()
-        self.movie = mdb.search(name)
+class Cast:
+    def __init__(self,c):
+        self.cast = c
 
-    def getTotal(self):
-        return len(self.movie)
+    def get_id(self):
+        return self.cast["id"]
 
-    def getRating(self, i):
-        return self.movie[i]["rating"]
+    def get_character(self):
+        return self.cast["character"]
 
-    def getVotes(self, i):
-        return self.movie[i]["votes"]
+    def get_original_title(self):
+        return self.cast["original_title"]
 
-    def getName(self, i):
-        return self.movie[i]["name"]
+    def get_title(self):
+        return self.cast["title"]
 
-    def getLanguage(self, i):
-        return self.movie[i]["language"]
+    def get_release_date(self):
+        return self.cast["release_date"]
 
-    def getCertification(self, i):
-        return self.movie[i]["certification"]
+    # Sizes = s->w92 m->w185 l->w500 o->original(default)
+    def get_poster(self,img_size="o",person_index=0):
+        img_path = self.cast["poster_path"]
+        return config['api']['base.url']+Core().poster_sizes(img_size)+img_path
 
-    def getUrl(self, i):
-        return self.movie[i]["url"]
+class Crew:
+    def __init__(self,c):
+        self.crew = c
 
-    def getOverview(self, i):
-        return self.movie[i]["overview"]
+    def get_id(self):
+        return self.crew["id"]
 
-    def getPopularity(self, i):
-        return self.movie[i]["popularity"]
+    def get_department(self):
+        return self.crew["department"]
 
-    def getOriginalName(self, i):
-        return self.movie[i]["original_name"]
+    def get_job(self):
+        return self.crew["job"]
 
-    def getLastModified(self, i):
-        return self.movie[i]["last_modified_at"]
+    def get_original_title(self):
+        return self.crew["original_title"]
 
-    def getImdbId(self, i):
-        return self.movie[i]["imdb_id"]
+    def get_title(self):
+        return self.crew["title"]
 
-    def getReleased(self, i):
-        return self.movie[i]["released"]
+    def get_release_date(self):
+        return self.crew["release_date"]
 
-    def getScore(self, i):
-        return self.movie[i]["score"]
-
-    def getAdult(self, i):
-        return self.movie[i]["adult"]
-
-    def getVersion(self, i):
-        return self.movie[i]["version"]
-
-    def getTranslated(self, i):
-        return self.movie[i]["translated"]
-
-    def getType(self, i):
-        return self.movie[i]["type"]
-
-    def getId(self, i):
-        return self.movie[i]["id"]
-
-    def getAlternativeName(self, i):
-        return self.movie[i]["alternative_name"]
-
-    def getPoster(self, i, size):
-        if size == "thumb" or size == "t":
-            return self.movie[i]["images"][0]["thumb"]
-        elif size == "cover" or size == "c":
-            return self.movie[i]["images"][0]["cover"]
-        else:
-            return self.movie[i]["images"][0]["mid"]
-
-    def getBackdrop(self, i, size):
-        if size == "poster" or size == "p":
-            return self.movie[i]["images"][1]["poster"]
-        else:
-            return self.movie[i]["images"][1]["thumb"]
-
-# Shortcuts for imdb lookup method
-# using:
-#   movie = tmdb.imdb("Sin City")
-#   print movie.getRating -> 7.0         
-class imdb:
-
-    def __init__(self, id = 0, title = False):
-        # get first movie if result=0
-        """Convenience wrapper for MovieDb.search - so you can do..
-        >>> import tmdb
-        >>> movie = tmdb.imdb(title="Fight Club") # or movie = tmdb.imdb(id=imdb_id)
-        >>> ranking = movie.getRanking() or votes = movie.getVotes()
-        <Search results: [<MovieResult: Fight Club (1999-09-16)>]>
-        """
-        self.id = id
-        self.title = title
-        self.mdb = MovieDb()
-        self.movie = self.mdb.imdbLookup(self.id, self.title)
-
-    def getTotal(self):
-        return len(self.movie)
-
-    def getRuntime(self, i):
-        return self.movie[i]["runtime"]
-
-    def getCategories(self):
-        from xml.dom.minidom import parse
-        adres = config['urls']['imdb.lookUp'] % self.getImdbId()
-        d = parse(urllib2.urlopen(adres))
-        s = d.getElementsByTagName("categories")
-        ds = []
-        for i in range(len(s[0].childNodes)):
-            if i % 2 > 0:
-                ds.append(s[0].childNodes[i].getAttribute("name"))
-        return ds
-
-    def getRating(self, i):
-        return self.movie[i]["rating"]
-
-    def getVotes(self, i):
-        return self.movie[i]["votes"]
-
-    def getName(self, i):
-        return self.movie[i]["name"]
-
-    def getLanguage(self, i):
-        return self.movie[i]["language"]
-
-    def getCertification(self, i):
-        return self.movie[i]["certification"]
-
-    def getUrl(self, i):
-        return self.movie[i]["url"]
-
-    def getOverview(self, i):
-        return self.movie[i]["overview"]
-
-    def getPopularity(self, i):
-        return self.movie[i]["popularity"]
-
-    def getOriginalName(self, i):
-        return self.movie[i]["original_name"]
-
-    def getLastModified(self, i):
-        return self.movie[i]["last_modified_at"]
-
-    def getImdbId(self, i):
-        return self.movie[i]["imdb_id"]
-
-    def getReleased(self, i):
-        return self.movie[i]["released"]
-
-    def getAdult(self, i):
-        return self.movie[i]["adult"]
-
-    def getVersion(self, i):
-        return self.movie[i]["version"]
-
-    def getTranslated(self, i):
-        return self.movie[i]["translated"]
-
-    def getType(self, i):
-        return self.movie[i]["type"]
-
-    def getId(self, i):
-        return self.movie[i]["id"]
-
-    def getAlternativeName(self, i):
-        return self.movie[i]["alternative_name"]
-
-    def getPoster(self, i, size):
-        poster = []
-        if size == "thumb" or size == "t":
-            _size = "thumb"
-        elif size == "cover" or size == "c":
-            _size = "cover"
-        else:
-            _size = "mid"
-        for a in self.movie[i]["images"]:
-            if a["type"] == "poster":
-                poster.append(a[_size])
-        return poster
-        del poster
-
-    def getBackdrop(self, i, size):
-        backdrop = []
-        if size == "thumb" or size == "t":
-            _size = "thumb"
-        elif size == "cover" or size == "c":
-            _size = "cover"
-        else:
-            _size = "mid"
-        for a in self.movie[i]["images"]:
-            if a["type"] == "backdrop":
-                backdrop.append(a[_size])
-        return backdrop
-        del backdrop
-
-def imdbLookup(id = 0, title = False):
-    """Convenience wrapper for Imdb.Lookup - so you can do..
-    >>> import tmdb
-    >>> tmdb.imdbLookup("Fight Club")
-    <Search results: [<MovieResult: Fight Club (1999-09-16)>]>
-    """
-    mdb = MovieDb()
-    return mdb.imdbLookup(id, title)
-
-def search(name):
-    """Convenience wrapper for MovieDb.search - so you can do..
-    >>> import tmdb
-    >>> tmdb.search("Fight Club")
-    <Search results: [<MovieResult: Fight Club (1999-09-16)>]>
-    """
-    mdb = MovieDb()
-    return mdb.search(name)
-
-def getMovieInfo(id):
-    """Convenience wrapper for MovieDb.search - so you can do..
-    >>> import tmdb
-    >>> tmdb.getMovieInfo(187)
-    <MovieResult: Sin City (2005-04-01)>
-    """
-    mdb = MovieDb()
-    return mdb.getMovieInfo(id)
-
-def mediaGetInfo(hash, size):
-    """Convenience wrapper for MovieDb.mediaGetInfo - so you can do..
-
-    >>> import tmdb
-    >>> tmdb.mediaGetInfo('907172e7fe51ba57', size = 742086656)[0]
-    <MovieResult: Sin City (2005-04-01)>
-    """
-    mdb = MovieDb()
-    return mdb.mediaGetInfo(hash, size)
-
-def searchByHashingFile(filename):
-    """Searches for the specified file using the OpenSubtitle hashing method
-    """
-    return mediaGetInfo(opensubtitleHashFile(filename), os.path.size(filename))
-
-def main():
-    results = search("Fight Club")
-    searchResult = results[0]
-    movie = getMovieInfo(searchResult['id'])
-    print movie['name']
-
-    print "Producers:"
-    for prodr in movie['cast']['producer']:
-        print " " * 4, prodr['name']
-    print movie['images']
-    for genreName in movie['categories']['genre']:
-        print "%s (%s)" % (genreName, movie['categories']['genre'][genreName])
-
-if __name__ == '__main__':
-    main()
+    # Sizes = s->w92 m->w185 l->w500 o->original(default)
+    def get_poster(self,img_size="o"):
+        img_path = self.crew["poster_path"]
+        return config['api']['base.url']+Core().poster_sizes(img_size)+img_path
