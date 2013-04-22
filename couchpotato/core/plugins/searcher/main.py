@@ -51,7 +51,12 @@ class Searcher(Plugin):
 }"""},
         })
 
-        # Schedule cronjob
+        addEvent('app.load', self.setCrons)
+        addEvent('setting.save.searcher.cron_day.after', self.setCrons)
+        addEvent('setting.save.searcher.cron_hour.after', self.setCrons)
+        addEvent('setting.save.searcher.cron_minute.after', self.setCrons)
+
+    def setCrons(self):
         fireEvent('schedule.cron', 'searcher.all', self.allMovies, day = self.conf('cron_day'), hour = self.conf('cron_hour'), minute = self.conf('cron_minute'))
 
     def allMoviesView(self):
@@ -367,7 +372,7 @@ class Searcher(Plugin):
 
         return search_types
 
-    def correctMovie(self, nzb = {}, movie = {}, quality = {}, **kwargs):
+    def correctMovie(self, nzb = None, movie = None, quality = None, **kwargs):
 
         imdb_results = kwargs.get('imdb_results', False)
         retention = Env.setting('retention', section = 'nzb')
