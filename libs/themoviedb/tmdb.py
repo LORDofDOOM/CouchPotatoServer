@@ -13,7 +13,7 @@ __version__ = "0.5"
 
 config = {}
 
-def configure(api_key, langShort, langLong):
+def configure(api_key, langShort='de', langLong='de-DE'):
     config['apikey'] = api_key
     config['langShort'] = langShort
     config['langLong'] = langLong    
